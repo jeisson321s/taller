@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gestión de Productos · Inventario</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#1d2b2a; --paper:#f3f5f2; --accent:#0f766e; --warn:#b45309; }
+  body { font-family:'Figtree',system-ui,sans-serif; background:var(--paper); color:var(--ink); }
+  .sidebar { width:230px; background:var(--ink); color:#dfe7e4; min-height:100vh; position:fixed; inset:0 auto 0 0; padding:1.25rem; }
+  .sidebar a { color:#b7c6c2; text-decoration:none; display:block; padding:.55rem .7rem; border-radius:.4rem; margin-bottom:.2rem; }
+  .sidebar a.active, .sidebar a:hover { background:#2b3f3d; color:#fff; }
+  main { margin-left:230px; padding:1.5rem 2rem; }
+  .panel { background:#fff; border-radius:.4rem; padding:1.25rem; }
+  .btn-accent { background:var(--accent); color:#fff; } .btn-accent:hover { background:#0b5f58; color:#fff; }
+  .low { color:var(--warn); font-weight:600; }
+  @media (max-width:850px){ .sidebar{position:static;width:100%;min-height:0} main{margin-left:0;padding:1rem} }
+</style>
+</head>
+<body>
+
+<div>
+  <aside class="sidebar">
+    <h5 class="mb-4"><i class="bi bi-box-seam"></i> Inventario</h5>
+    <a href="resumen.html"><i class="bi bi-speedometer2 me-2"></i>Resumen</a>
+    <a href="productos.html" class="active"><i class="bi bi-table me-2"></i>Productos</a>
+    <a href="historial.html"><i class="bi bi-clock-history me-2"></i>Historial</a>
+    <hr>
+    <div class="small text-truncate" id="userEmail"></div>
+    <button id="btnLogout" class="btn btn-sm btn-outline-light mt-2 w-100">Cerrar sesión</button>
+  </aside>
+
+  <main>
+    <section id="productos">
+      <div class="panel">
+        <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+          <h5 class="m-0">Productos</h5>
+          <div class="d-flex gap-2">
+            <input id="buscar" class="form-control form-control-sm" placeholder="Buscar por nombre o categoría">
+            <button class="btn btn-accent btn-sm text-nowrap" id="btnNuevo"><i class="bi bi-plus-lg"></i> Nuevo producto</button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Categoría</th>
+                <th class="text-end">Peso (kg)</th>
+                <th class="text-end">Precio</th>
+                <th class="text-end">Stock</th>
+                <th>Especificaciones</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tabla"></tbody>
+          </table>
+        </div>
+        <p id="vacio" class="text-secondary text-center my-4" style="display:none">Aún no hay productos. Pulsa «Nuevo producto» para agregar el primero.</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ============ MODAL CREAR / EDITAR ============ -->
+<div class="modal fade" id="modalProd" tabindex="-1">
+  <div class="modal-dialog modal-lg"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title" id="modalTitulo">Nuevo producto</h5>
+      <button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <input type="hidden" id="pId">
+      <div class="row mb-2">
+        <div class="col-md-6">
+          <label class="form-label">Nombre</label>
+          <input id="pNombre" class="form-control">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Categoría</label>
+          <input id="pCat" class="form-control" list="cats">
+          <datalist id="cats"><option>Electrónica</option><option>Hogar</option><option>Ropa</option><option>Papelería</option></datalist>
+        </div>
+      </div>
+      <div class="row mb-2">
+        <div class="col-md-4">
+          <label class="form-label">Precio ($)</label>
+          <input id="pPrecio" type="number" min="0" step="0.01" class="form-control">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Stock</label>
+          <input id="pStock" type="number" min="0" step="1" class="form-control">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Peso (kg)</label>
+          <input id="pPeso" type="number" min="0" step="0.01" class="form-control" placeholder="Ej: 1.5">
+        </div>
+      </div>
+      <div class="mb-2">
+        <label class="form-label">Especificaciones / Detalles técnicos</label>
+        <textarea id="pEspec" class="form-control" rows="3" placeholder="Ej: Color: Negro, Dimensiones: 30x20 cm, Garantía: 12 meses..."></textarea>
+      </div>
+      <div id="pMsg" class="text-danger small mt-2"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+      <button class="btn btn-accent" id="btnGuardar">Guardar</button>
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ MODAL DETALLES ============ -->
+<div class="modal fade" id="modalVer" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header">
+      <h5 class="modal-title" id="verTitulo">Especificaciones del producto</h5>
+      <button class="btn-close" data-bs-dismiss="modal"></button>
+    </div>
+    <div class="modal-body">
+      <p><strong>Categoría:</strong> <span id="verCat"></span></p>
+      <p><strong>Peso:</strong> <span id="verPeso"></span> kg</p>
+      <p><strong>Precio:</strong> <span id="verPrecio"></span></p>
+      <p><strong>Stock disponible:</strong> <span id="verStock"></span></p>
+      <hr>
+      <h6>Detalles técnicos y especificaciones:</h6>
+      <p id="verEspec" class="text-secondary bg-light p-3 rounded" style="white-space: pre-wrap;"></p>
+    </div>
+  </div></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp } 
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBsonVhmr99_bMIHDf-wuDM73Mlf-6_b-8",
+  authDomain: "taller-cf180.firebaseapp.com",
+  projectId: "taller-cf180",
+  storageBucket: "taller-cf180.firebasestorage.app",
+  messagingSenderId: "257239791272",
+  appId: "1:257239791272:web:f57050863e106f5533349d"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const $ = id => document.getElementById(id);
+const money = n => "$" + Number(n).toLocaleString("es-CO", { maximumFractionDigits: 2 });
+const esc = s => String(s || '').replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+
+let productos = [];
+const modal = new bootstrap.Modal($("modalProd"));
+const modalVer = new bootstrap.Modal($("modalVer"));
+
+async function guardarLog(accion, detalle) {
+  try {
+    await addDoc(collection(db, "historial"), {
+      accion, detalle, usuario: auth.currentUser.email, fecha: serverTimestamp()
+    });
+  } catch (err) { console.error("Error historial:", err); }
+}
+
+onAuthStateChanged(auth, user => {
+  if (!user) {
+    window.location.href = "index.html";
+  } else {
+    $("userEmail").textContent = user.email;
+    const q = query(collection(db, "productos"), orderBy("creado", "desc"));
+    onSnapshot(q, snap => {
+      productos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      render();
+    });
+  }
+});
+
+$("btnLogout").onclick = () => signOut(auth).then(() => window.location.href = "index.html");
+
+function render() {
+  const filtro = $("buscar").value.toLowerCase();
+  const lista = productos.filter(p => (p.nombre + " " + p.categoria).toLowerCase().includes(filtro));
+
+  $("tabla").innerHTML = lista.map(p => `
+    <tr>
+      <td><strong>${esc(p.nombre)}</strong></td>
+      <td>${esc(p.categoria)}</td>
+      <td class="text-end">${p.peso ? p.peso + ' kg' : '-'}</td>
+      <td class="text-end">${money(p.precio)}</td>
+      <td class="text-end ${p.stock < 5 ? "low" : ""}">${p.stock}</td>
+      <td>
+        <button class="btn btn-sm btn-outline-info" data-ver="${p.id}"><i class="bi bi-eye"></i> Ver detalles</button>
+      </td>
+      <td class="text-end text-nowrap">
+        <button class="btn btn-sm btn-outline-secondary" data-edit="${p.id}" title="Editar"><i class="bi bi-pencil"></i></button>
+        <button class="btn btn-sm btn-outline-danger" data-del="${p.id}" title="Eliminar"><i class="bi bi-trash"></i></button>
+      </td>
+    </tr>`).join("");
+  $("vacio").style.display = lista.length ? "none" : "block";
+}
+$("buscar").oninput = render;
+
+$("btnNuevo").onclick = () => {
+  ["pId","pNombre","pCat","pPrecio","pStock","pPeso","pEspec"].forEach(i => $(i).value = "");
+  $("pMsg").textContent = ""; $("modalTitulo").textContent = "Nuevo producto"; modal.show();
+};
+
+$("tabla").onclick = async e => {
+  const b = e.target.closest("button"); if (!b) return;
+  
+  if (b.dataset.ver) {
+    const p = productos.find(x => x.id === b.dataset.ver);
+    $("verTitulo").textContent = p.nombre;
+    $("verCat").textContent = p.categoria;
+    $("verPeso").textContent = p.peso || 'No especificado';
+    $("verPrecio").textContent = money(p.precio);
+    $("verStock").textContent = p.stock;
+    $("verEspec").textContent = p.especificaciones || 'Sin especificaciones registradas.';
+    modalVer.show();
+  } else if (b.dataset.edit) {
+    const p = productos.find(x => x.id === b.dataset.edit);
+    $("pId").value = p.id; 
+    $("pNombre").value = p.nombre; 
+    $("pCat").value = p.categoria;
+    $("pPrecio").value = p.precio; 
+    $("pStock").value = p.stock;
+    $("pPeso").value = p.peso || "";
+    $("pEspec").value = p.especificaciones || "";
+    $("pMsg").textContent = ""; 
+    $("modalTitulo").textContent = "Editar producto"; 
+    modal.show();
+  } else if (b.dataset.del && confirm("¿Eliminar este producto?")) {
+    const p = productos.find(x => x.id === b.dataset.del);
+    await deleteDoc(doc(db, "productos", b.dataset.del));
+    await guardarLog("Eliminar", `Se eliminó el producto "${p?.nombre || 'desconocido'}"`);
+  }
+};
+
+$("btnGuardar").onclick = async () => {
+  const data = {
+    nombre: $("pNombre").value.trim(), 
+    categoria: $("pCat").value.trim(),
+    precio: parseFloat($("pPrecio").value), 
+    stock: parseInt($("pStock").value, 10),
+    peso: parseFloat($("pPeso").value) || 0,
+    especificaciones: $("pEspec").value.trim()
+  };
+  
+  if (!data.nombre || !data.categoria || isNaN(data.precio) || isNaN(data.stock) || data.precio < 0 || data.stock < 0) {
+    $("pMsg").textContent = "Completa los campos obligatorios (Nombre, Categoría, Precio y Stock)."; return;
+  }
+  
+  try {
+    const id = $("pId").value;
+    if (id) {
+      await updateDoc(doc(db, "productos", id), data);
+      await guardarLog("Editar", `Se actualizó el producto "${data.nombre}"`);
+    } else {
+      await addDoc(collection(db, "productos"), { ...data, creado: serverTimestamp(), uid: auth.currentUser.uid });
+      await guardarLog("Crear", `Se agregó el producto "${data.nombre}" (Peso: ${data.peso} kg)`);
+    }
+    modal.hide();
+  } catch (e) { $("pMsg").textContent = e.message; }
+};
+</script>
+</body>
+</html>

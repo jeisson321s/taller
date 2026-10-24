@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Historial de Actividades · Inventario</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#1d2b2a; --paper:#f3f5f2; --accent:#0f766e; }
+  body { font-family:'Figtree',system-ui,sans-serif; background:var(--paper); color:var(--ink); }
+  .sidebar { width:230px; background:var(--ink); color:#dfe7e4; min-height:100vh; position:fixed; inset:0 auto 0 0; padding:1.25rem; }
+  .sidebar a { color:#b7c6c2; text-decoration:none; display:block; padding:.55rem .7rem; border-radius:.4rem; margin-bottom:.2rem; }
+  .sidebar a.active, .sidebar a:hover { background:#2b3f3d; color:#fff; }
+  main { margin-left:230px; padding:1.5rem 2rem; }
+  .panel { background:#fff; border-radius:.4rem; padding:1.25rem; }
+  .badge-crear { background:#0f766e; color:#fff; }
+  .badge-editar { background:#b45309; color:#fff; }
+  .badge-eliminar { background:#b91c1c; color:#fff; }
+  @media (max-width:850px){ .sidebar{position:static;width:100%;min-height:0} main{margin-left:0;padding:1rem} }
+</style>
+</head>
+<body>
+
+<div>
+  <aside class="sidebar">
+    <h5 class="mb-4"><i class="bi bi-box-seam"></i> Inventario</h5>
+    <a href="resumen.html"><i class="bi bi-speedometer2 me-2"></i>Resumen</a>
+    <a href="productos.html"><i class="bi bi-table me-2"></i>Productos</a>
+    <a href="historial.html" class="active"><i class="bi bi-clock-history me-2"></i>Historial</a>
+    <hr>
+    <div class="small text-truncate" id="userEmail"></div>
+    <button id="btnLogout" class="btn btn-sm btn-outline-light mt-2 w-100">Cerrar sesión</button>
+  </aside>
+
+  <main>
+    <div class="panel">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="m-0"><i class="bi bi-clock-history"></i> Historial de Actividades</h4>
+        <span class="badge bg-secondary" id="totalLogs">0 registros</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th>Acción</th>
+              <th>Detalle</th>
+              <th>Usuario</th>
+              <th class="text-end">Fecha y Hora</th>
+            </tr>
+          </thead>
+          <tbody id="tablaHistorial"></tbody>
+        </table>
+      </div>
+      <p id="vacio" class="text-secondary text-center my-4" style="display:none">No hay actividad registrada aún.</p>
+    </div>
+  </main>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, onSnapshot, query, orderBy } 
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBsonVhmr99_bMIHDf-wuDM73Mlf-6_b-8",
+  authDomain: "taller-cf180.firebaseapp.com",
+  projectId: "taller-cf180",
+  storageBucket: "taller-cf180.firebasestorage.app",
+  messagingSenderId: "257239791272",
+  appId: "1:257239791272:web:f57050863e106f5533349d"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const $ = id => document.getElementById(id);
+
+onAuthStateChanged(auth, user => {
+  if (!user) {
+    window.location.href = "index.html";
+  } else {
+    $("userEmail").textContent = user.email;
+    const q = query(collection(db, "historial"), orderBy("fecha", "desc"));
+    onSnapshot(q, snap => {
+      const logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderLogs(logs);
+    });
+  }
+});
+
+$("btnLogout").onclick = () => signOut(auth).then(() => window.location.href = "index.html");
+
+function renderLogs(logs) {
+  $("totalLogs").textContent = logs.length + " registros";
+  $("vacio").style.display = logs.length ? "none" : "block";
+
+  $("tablaHistorial").innerHTML = logs.map(l => {
+    let badgeClass = "badge-crear";
+    if (l.accion === "Editar") badgeClass = "badge-editar";
+    if (l.accion === "Eliminar") badgeClass = "badge-eliminar";
+
+    const fechaFormateada = l.fecha?.toDate ? l.fecha.toDate().toLocaleString("es-CO") : "Procesando...";
+
+    return `
+      <tr>
+        <td><span class="badge ${badgeClass}">${l.accion}</span></td>
+        <td>${l.detalle}</td>
+        <td><small class="text-secondary">${l.usuario}</small></td>
+        <td class="text-end text-nowrap"><small class="text-muted">${fechaFormateada}</small></td>
+      </tr>
+    `;
+  }).join("");
+}
+</script>
+</body>
+</html>
